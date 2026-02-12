@@ -10,7 +10,15 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -291,7 +299,7 @@
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You are a helpful coding assistant. Provide clear, concise code and explanations. Format code in markdown code blocks. Instruct the user what files to create or to insert using the Insert button.'
+                                content: 'You are a helpful coding assistant. Provide clear, concise code and explanations. Format code in markdown code blocks. The user can click "Create File from Code" to save your code to a new file.'
                             },
                             {
                                 role: 'user',
@@ -339,9 +347,17 @@
         // ============= MARKDOWN RENDERER =============
         const MarkdownRenderer = ({ content }) => {
             const renderMarkdown = (text) => {
-                // Code blocks
+                // Code blocks with Prism syntax highlighting
                 text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-                    return `<pre><code class="language-${lang || 'plaintext'}">${escapeHtml(code.trim())}</code></pre>`;
+                    const trimmed = code.trim();
+                    const langKey = (lang || 'plaintext').toLowerCase();
+                    let highlighted = escapeHtml(trimmed);
+                    if (typeof Prism !== 'undefined' && Prism.languages[langKey]) {
+                        try {
+                            highlighted = Prism.highlight(trimmed, Prism.languages[langKey], langKey);
+                        } catch (_) {}
+                    }
+                    return `<pre class="!my-2 !rounded-lg !overflow-x-auto !p-3" style="background:#2d2d2d"><code class="language-${langKey}">${highlighted}</code></pre>`;
                 });
 
                 // Inline code
@@ -745,6 +761,36 @@
                 setOpenFiles([]);
                 setActiveFile(null);
                 addConsoleOutput(`✓ Created new project: ${projectName}`);
+            };
+
+            const createEmptyProject = () => {
+                const projectName = prompt('Enter project name:', `Project ${projects.length + 1}`);
+                if (!projectName) return;
+
+                const newProject = {
+                    id: generateId(),
+                    name: projectName,
+                    files: {},
+                    createdAt: Date.now()
+                };
+
+                setProjects([...projects, newProject]);
+                setCurrentProject(newProject);
+                setOpenFiles([]);
+                setActiveFile(null);
+                addConsoleOutput(`✓ Created empty project: ${projectName}`);
+            };
+
+            const deleteProject = (project) => {
+                if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+                const next = projects.filter(p => p.id !== project.id);
+                setProjects(next);
+                if (currentProject?.id === project.id) {
+                    setCurrentProject(next[0] || null);
+                    setOpenFiles([]);
+                    setActiveFile(null);
+                }
+                addConsoleOutput(`✓ Deleted project: ${project.name}`);
             };
 
             const downloadProjectAsZip = (project) => {
@@ -1167,20 +1213,28 @@
                 }
             };
 
-            const insertAICode = (code) => {
-                if (window.editorInstance && activeFile) {
-                    const position = window.editorInstance.getPosition();
-                    window.editorInstance.executeEdits('', [{
-                        range: new monacoRef.current.Range(
-                            position.lineNumber,
-                            position.column,
-                            position.lineNumber,
-                            position.column
-                        ),
-                        text: code
-                    }]);
-                    addConsoleOutput('✓ Code inserted at cursor');
+            const createFileFromAICode = (code, suggestedLang = '') => {
+                if (!currentProject || !code) return;
+                const extMap = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', css: 'css', json: 'json', python: 'py', py: 'py', html: 'html', plaintext: 'txt' };
+                const ext = extMap[suggestedLang?.toLowerCase()] || 'js';
+                const defaultName = `new-file.${ext}`;
+                const fileName = prompt('Enter filename for new file:', defaultName);
+                if (!fileName || !fileName.trim()) return;
+                const trimmed = fileName.trim().replace(/^\/+|\/+$/g, '');
+                if (currentProject.files[trimmed]) {
+                    alert('File already exists!');
+                    return;
                 }
+                setProjects(prev => prev.map(p => {
+                    if (p.id === currentProject.id) {
+                        const updated = { ...p, files: { ...p.files, [trimmed]: code } };
+                        setCurrentProject(updated);
+                        return updated;
+                    }
+                    return p;
+                }));
+                openFile(trimmed);
+                addConsoleOutput(`✓ Created file: ${trimmed}`);
             };
 
             const saveApiKey = () => {
@@ -1231,12 +1285,21 @@
                             onDrop={handleAreaDrop}
                         >
                             <div className="p-3 border-b border-border-color space-y-2">
-                                <button
-                                    onClick={createNewProject}
-                                    className="w-full px-3 py-2 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
-                                >
-                                    + New Project
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={createNewProject}
+                                        className="flex-1 px-3 py-2 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
+                                    >
+                                        + Project
+                                    </button>
+                                    <button
+                                        onClick={createEmptyProject}
+                                        className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                        title="Create empty project"
+                                    >
+                                        + Empty
+                                    </button>
+                                </div>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => createNewFile()}
@@ -1311,21 +1374,31 @@
                                 )}
                             </div>
 
-                            <div className="p-3 border-t border-border-color">
-                                <select
-                                    value={currentProject?.id || ''}
-                                    onChange={(e) => {
-                                        const project = projects.find(p => p.id === e.target.value);
-                                        setCurrentProject(project);
-                                        setOpenFiles([]);
-                                        setActiveFile(null);
-                                    }}
-                                    className={`w-full px-3 py-2 rounded text-sm ${darkMode ? 'bg-hover-bg' : 'bg-gray-200'}`}
-                                >
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
+                            <div className="p-3 border-t border-border-color space-y-2">
+                                <div className="flex gap-2 items-center">
+                                    <select
+                                        value={currentProject?.id || ''}
+                                        onChange={(e) => {
+                                            const project = projects.find(p => p.id === e.target.value);
+                                            setCurrentProject(project);
+                                            setOpenFiles([]);
+                                            setActiveFile(null);
+                                        }}
+                                        className={`flex-1 px-3 py-2 rounded text-sm ${darkMode ? 'bg-hover-bg' : 'bg-gray-200'}`}
+                                    >
+                                        {projects.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={() => currentProject && deleteProject(currentProject)}
+                                        disabled={!currentProject || projects.length <= 1}
+                                        className={`p-2 rounded text-sm transition-colors ${darkMode ? 'hover:bg-red-900/50 text-red-400' : 'hover:bg-red-100 text-red-600'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                                        title="Delete project"
+                                    >
+                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1447,21 +1520,19 @@
                                                 )}
                                             </div>
                                             
-                                            {msg.role === 'assistant' && (
-                                                <div className="mt-2 space-x-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            const codeMatch = msg.content.match(/```[\w]*\n([\s\S]*?)```/);
-                                                            if (codeMatch) {
-                                                                insertAICode(codeMatch[1]);
-                                                            }
-                                                        }}
-                                                        className="text-xs text-accent hover:underline"
-                                                    >
-                                                        Insert Code
-                                                    </button>
-                                                </div>
-                                            )}
+                                            {msg.role === 'assistant' && (() => {
+                                                const codeMatch = msg.content.match(/```(\w*)\n([\s\S]*?)```/);
+                                                return codeMatch && (
+                                                    <div className="mt-2">
+                                                        <button
+                                                            onClick={() => createFileFromAICode(codeMatch[2].trim(), codeMatch[1] || 'plaintext')}
+                                                            className="px-3 py-1.5 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded transition-colors"
+                                                        >
+                                                            Create File from Code
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     ))}
                                 </div>
