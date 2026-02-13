@@ -598,6 +598,9 @@
 
             const editorRef = useRef(null);
             const monacoRef = useRef(null);
+            const activeFileRef = useRef(null);
+            const currentProjectRef = useRef(null);
+            const isSettingValueRef = useRef(false); // Flag to prevent auto-save during programmatic changes
 
             // Initialize
             useEffect(() => {
@@ -633,9 +636,14 @@
                         });
 
                         editor.onDidChangeModelContent(() => {
-                            if (activeFile && currentProject) {
+                            // Skip auto-save if we're programmatically setting the value
+                            if (isSettingValueRef.current) return;
+                            
+                            const currentFile = activeFileRef.current;
+                            const currentProj = currentProjectRef.current;
+                            if (currentFile && currentProj) {
                                 const content = editor.getValue();
-                                saveFileContent(activeFile, content);
+                                saveFileContent(currentFile, content);
                             }
                         });
 
@@ -674,11 +682,24 @@
                 }
             }, [darkMode]);
 
+            // Update refs when activeFile or currentProject changes
+            useEffect(() => {
+                activeFileRef.current = activeFile;
+            }, [activeFile]);
+
+            useEffect(() => {
+                currentProjectRef.current = currentProject;
+            }, [currentProject]);
+
             const saveFileContent = (fileName, content) => {
+                const currentProj = currentProjectRef.current;
+                if (!currentProj) return;
+                
                 setProjects(prev => prev.map(p => {
-                    if (p.id === currentProject.id) {
+                    if (p.id === currentProj.id) {
                         const updated = { ...p, files: { ...p.files, [fileName]: content } };
                         setCurrentProject(updated);
+                        currentProjectRef.current = updated;
                         return updated;
                     }
                     return p;
@@ -697,11 +718,17 @@
             };
 
             const openFile = (filePath) => {
-                if (!currentProject || !currentProject.files[filePath]) return;
+                // Use the ref to get the most up-to-date project
+                const project = currentProjectRef.current || currentProject;
+                if (!project || !project.files[filePath]) return;
+                
                 if (!openFiles.includes(filePath)) {
                     setOpenFiles([...openFiles, filePath]);
                 }
                 setActiveFile(filePath);
+                activeFileRef.current = filePath; // Update ref so editor can save changes
+                currentProjectRef.current = project; // Ensure ref has latest project
+                
                 // Auto-expand parent folders
                 const parts = filePath.split('/');
                 setExpandedFolders(prev => {
@@ -715,8 +742,8 @@
                 
                 if (isImageFile(filePath)) return; // Image viewer handles its own display
                 
-                if (window.editorInstance && currentProject) {
-                    const content = currentProject.files[filePath] || '';
+                if (window.editorInstance) {
+                    const content = project.files[filePath] || '';
                     const ext = filePath.split('.').pop();
                     const languageMap = {
                         'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
@@ -727,7 +754,9 @@
                     if (model) {
                         monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
                     }
+                    isSettingValueRef.current = true;
                     window.editorInstance.setValue(content);
+                    isSettingValueRef.current = false;
                 }
             };
 
@@ -740,8 +769,11 @@
                         openFile(newOpenFiles[newOpenFiles.length - 1]);
                     } else {
                         setActiveFile(null);
+                        activeFileRef.current = null;
                         if (window.editorInstance) {
+                            isSettingValueRef.current = true;
                             window.editorInstance.setValue('');
+                            isSettingValueRef.current = false;
                         }
                     }
                 }
@@ -991,16 +1023,58 @@
                     alert('File already exists!');
                     return;
                 }
+                
+                // Create the updated project immediately
+                const updatedProject = { ...currentProject, files: { ...currentProject.files, [trimmed]: '' } };
+                
                 setProjects(prev => prev.map(p => {
                     if (p.id === currentProject.id) {
-                        const updated = { ...p, files: { ...p.files, [trimmed]: '' } };
-                        setCurrentProject(updated);
-                        return updated;
+                        return updatedProject;
                     }
                     return p;
                 }));
+                
+                setCurrentProject(updatedProject);
+                
+                // Update refs BEFORE opening file to prevent race condition
+                currentProjectRef.current = updatedProject;
+                activeFileRef.current = trimmed;
+                
+                // Open the file with the updated content
+                if (!openFiles.includes(trimmed)) {
+                    setOpenFiles([...openFiles, trimmed]);
+                }
+                setActiveFile(trimmed);
+                
+                // Auto-expand parent folders
+                const parts = trimmed.split('/');
+                setExpandedFolders(prev => {
+                    const next = [...prev];
+                    for (let i = 1; i < parts.length; i++) {
+                        const folderPath = parts.slice(0, i).join('/');
+                        if (!next.includes(folderPath)) next.push(folderPath);
+                    }
+                    return next;
+                });
+                
+                // Update the editor directly
+                if (window.editorInstance) {
+                    const ext = trimmed.split('.').pop();
+                    const languageMap = {
+                        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+                        'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                        'py': 'python', 'txt': 'plaintext'
+                    };
+                    const model = window.editorInstance.getModel();
+                    if (model && monacoRef.current) {
+                        monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
+                    }
+                    isSettingValueRef.current = true;
+                    window.editorInstance.setValue('');
+                    isSettingValueRef.current = false;
+                }
+                
                 addConsoleOutput(`✓ Created file: ${trimmed}`);
-                openFile(trimmed);
             };
 
             const createNewFolder = (parentPath = '') => {
@@ -1225,15 +1299,45 @@
                     alert('File already exists!');
                     return;
                 }
+                
+                // Create the updated project immediately
+                const updatedProject = { ...currentProject, files: { ...currentProject.files, [trimmed]: code } };
+                
                 setProjects(prev => prev.map(p => {
                     if (p.id === currentProject.id) {
-                        const updated = { ...p, files: { ...p.files, [trimmed]: code } };
-                        setCurrentProject(updated);
-                        return updated;
+                        return updatedProject;
                     }
                     return p;
                 }));
-                openFile(trimmed);
+                
+                setCurrentProject(updatedProject);
+                
+                // Update refs BEFORE opening file to prevent race condition
+                currentProjectRef.current = updatedProject;
+                activeFileRef.current = trimmed;
+                
+                // Open the file with the updated content
+                if (!openFiles.includes(trimmed)) {
+                    setOpenFiles([...openFiles, trimmed]);
+                }
+                setActiveFile(trimmed);
+                
+                // Update the editor directly
+                if (window.editorInstance) {
+                    const languageMap = {
+                        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+                        'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                        'py': 'python', 'txt': 'plaintext'
+                    };
+                    const model = window.editorInstance.getModel();
+                    if (model && monacoRef.current) {
+                        monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
+                    }
+                    isSettingValueRef.current = true;
+                    window.editorInstance.setValue(code);
+                    isSettingValueRef.current = false;
+                }
+                
                 addConsoleOutput(`✓ Created file: ${trimmed}`);
             };
 
