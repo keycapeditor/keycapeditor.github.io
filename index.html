@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keycap</title>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'editor-bg': '#1e1e1e',
+                        'sidebar-bg': '#252526',
+                        'hover-bg': '#2a2d2e',
+                        'border-color': '#3e3e42',
+                        'accent': '#007acc',
+                        'accent-hover': '#0098ff',
+                    },
+                    fontFamily: {
+                        'display': ['JetBrains Mono', 'Courier New', 'monospace'],
+                        'sans': ['Inter var', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* ================= GLOBAL ================= */
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        overflow: hidden;
+    }
+
+    /* ================= EDITOR ================= */
+
+    .editor-container {
+        position: absolute;
+        inset: 0;
+    }
+
+    .monaco-editor-wrapper {
+        height: 100%;
+        width: 100%;
+    }
+
+    /* ================= SCROLLBAR ================= */
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(120,120,120,0.4);
+        border-radius: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(120,120,120,0.7);
+    }
+
+    /* ================= FILE TREE ================= */
+
+    .file-tree-item {
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    /* ================= CONTEXT MENU ================= */
+
+    .context-menu {
+        position: fixed;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        z-index: 1000;
+        min-width: 180px;
+        overflow: hidden;
+
+        /* LIGHT MODE DEFAULT */
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+
+    .context-menu-item {
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s ease;
+        background: #4e4e4e;
+    }
+
+    .context-menu-item:hover {
+        background: #ffffff;
+    }
+
+    /* DARK MODE */
+    .dark .context-menu {
+        background: #1f1f23;
+        border: 1px solid #333;
+    }
+
+    .dark .context-menu-item:hover {
+        background: #2a2a2f;
+    }
+
+    /* ================= AI MESSAGE ANIMATION ================= */
+
+    .ai-message {
+        animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ================= MARKDOWN ================= */
+
+    /* Dark */
+    .dark .markdown-content pre {
+        background: #111827;
+        border: 1px solid #374151;
+    }
+
+    /* Light */
+    .markdown-content pre {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+    }
+
+    .markdown-content pre {
+        border-radius: 8px;
+        padding: 12px;
+        overflow-x: auto;
+        margin: 8px 0;
+    }
+
+    .dark .markdown-content code {
+        background: #1f2937;
+    }
+
+    .markdown-content code {
+        background: #e5e7eb;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+    }
+
+    .markdown-content pre code {
+        background: transparent;
+        padding: 0;
+    }
+
+    /* ================= GLASS MODAL ================= */
+
+    .glassmorphism {
+        backdrop-filter: blur(12px);
+        border-radius: 16px;
+    }
+
+    /* Dark */
+    .dark .glassmorphism {
+        background: rgba(30, 30, 35, 0.85);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Light */
+    .glassmorphism {
+        background: rgba(255,255,255,0.85);
+        border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    /* ================= LOGO ================= */
+
+    .keycap-icon {
+        width: 24px;
+        height: 24px;
+        background-color: transparent;
+    }
+    </style>
+
+</head>
+<body class="dark">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ============= UTILITY FUNCTIONS =============
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+
+        const defaultFiles = {
+            'index.js': 'console.log("Hello from Keycap!");\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconst result = greet("World");\nconsole.log(result);',
+            'styles.css': 'body {\n  margin: 0;\n  padding: 0;\n  font-family: system-ui, sans-serif;\n  background: #f5f5f5;\n}\n\n.container {\n  max-width: 1200px;\n  margin: 0 auto;\n  padding: 20px;\n}',
+            'README.md': '# My Project\n\nWelcome to your new project!\n\n## Features\n- Modern code editor\n- AI assistance\n- Project management\n\n## Getting Started\nStart editing files in the editor.',
+            'package.json': '{\n  "name": "my-project",\n  "version": "1.0.0",\n  "description": "A new project created with Keycap",\n  "main": "index.js",\n  "scripts": {\n    "start": "node index.js"\n  }\n}',
+            'src/utils.js': '// Utility functions\nexport function formatDate(date) {\n  return new Date(date).toLocaleDateString();\n}'
+        };
+
+        const createDefaultProject = () => ({
+            id: generateId(),
+            name: 'My Project',
+            files: { ...defaultFiles },
+            createdAt: Date.now()
+        });
+
+        // Build tree structure from path-based files
+        const buildFileTree = (files) => {
+            const tree = { folders: {}, files: {} };
+            for (const path of Object.keys(files)) {
+                const parts = path.split('/');
+                if (parts.length === 1) {
+                    tree.files[path] = path;
+                } else {
+                    let current = tree;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        const folder = parts[i];
+                        if (!current.folders[folder]) current.folders[folder] = { folders: {}, files: {} };
+                        current = current.folders[folder];
+                    }
+                    current.files[parts[parts.length - 1]] = path;
+                }
+            }
+            return tree;
+        };
+
+        const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+        const isImageFile = (path) => IMAGE_EXTENSIONS.includes((path || '').split('.').pop()?.toLowerCase());
+
+        // ============= AI SERVICE =============
+        const AIService = {
+            cerebrasKey: localStorage.getItem('cerebras_api_key') || '',
+
+            setApiKey(key) {
+                this.cerebrasKey = key;
+                localStorage.setItem('cerebras_api_key', key);
+            },
+
+            async sendMessage(message, context = '') {
+                try {
+                    if (this.cerebrasKey) {
+                        return await this.callCerebras(message, context);
+                    } else {
+                        return await this.callFallback(message);
+                    }
+                } catch (error) {
+                    console.error('AI Error:', error);
+                    return { response: `Error: ${error.message}` };
+                }
+            },
+
+            async callCerebras(message, context) {
+                const prompt = context 
+                    ? `Context:\n${context}\n\nUser request: ${message}` 
+                    : message;
+
+                const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.cerebrasKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'llama3.1-8b',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'You are a helpful coding assistant. Provide clear, concise code and explanations. Format code in markdown code blocks. The user can click "Create File from Code" to save your code to a new file.'
+                            },
+                            {
+                                role: 'user',
+                                content: prompt
+                            }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 2000
+                    })
+                });
+
+                const data = await res.json();
+                
+                if (data.choices && data.choices[0]) {
+                    return { response: data.choices[0].message.content };
+                } else if (data.error) {
+                    throw new Error(data.error.message || 'Cerebras API error');
+                }
+                
+                throw new Error('Invalid response from Cerebras');
+            },
+
+            async callFallback(message) {
+                const res = await fetch('https://keycap-ai.onrender.com/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: message,
+                        model: 'gpt-3.5-turbo'
+                    })
+                });
+
+                const data = await res.json();
+                
+                if (data.response) {
+                    return { response: data.response };
+                } else if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                throw new Error("Didn't get a response from AI");
+            }
+        };
+
+        // ============= MARKDOWN RENDERER =============
+        const MarkdownRenderer = ({ content }) => {
+            const renderMarkdown = (text) => {
+                // Code blocks with Prism syntax highlighting
+                text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                    const trimmed = code.trim();
+                    const langKey = (lang || 'plaintext').toLowerCase();
+                    let highlighted = escapeHtml(trimmed);
+                    if (typeof Prism !== 'undefined' && Prism.languages[langKey]) {
+                        try {
+                            highlighted = Prism.highlight(trimmed, Prism.languages[langKey], langKey);
+                        } catch (_) {}
+                    }
+                    return `<pre class="!my-2 !rounded-lg !overflow-x-auto !p-3" style="background:#2d2d2d"><code class="language-${langKey}">${highlighted}</code></pre>`;
+                });
+
+                // Inline code
+                text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+                // Bold
+                text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+                // Italic
+                text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+                // Headers
+                text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+                text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+                text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+                // Line breaks
+                text = text.replace(/\n/g, '<br>');
+
+                return text;
+            };
+
+            const escapeHtml = (text) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+
+            return (
+                <div 
+                    className="markdown-content text-sm text-gray-300"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                />
+            );
+        };
+
+        // ============= KEYCAP ICON =============
+        const KeycapIcon = () => (
+            <img src="assets/logo.png" alt="thelogo" style={{ width: "40px", backgroundColor: "transparent" }}/>
+        );
+
+        const FileIcon = ({ name }) => {
+        const ext = name.split('.').pop()?.toLowerCase();
+        const base = "w-4 h-4 mr-2 flex-shrink-0";
+
+        const icons = {
+            js: (
+                 <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg"
+                    alt="js"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+            html: (
+                 <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg"
+                    alt="html"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+            css: (
+                <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg"
+                    alt="css3"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+            py: (
+                
+             <img
+                src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg"
+                alt="Python"
+                className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                />
+            ),
+            txt: (
+                 <img
+                    src="https://www.svgrepo.com/show/149905/txt-file-symbol.svg"
+                    alt="text"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+
+            json: (
+                    <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/json/json-original.svg"
+                    alt="json"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+
+            md: (
+                    <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/markdown/markdown-original.svg"
+                    alt="markdown"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+            tsx: (
+                    <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg"
+                    alt="tsx"
+                    className={`${base} w-6 h-6`} // Tailwind width/height = 24px
+                    />
+            ),
+            ts: (
+                    <img
+                    src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg"
+                    alt="ts"
+                    className={`${base} w-6 h-6`}
+                    />
+            ),
+            png: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
+            jpg: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
+            jpeg: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
+            gif: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2z"/></svg>,
+            webp: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2z"/></svg>,
+            svg: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2z"/></svg>
+            };
+
+
+        return icons[ext] || (
+            <svg viewBox="0 0 24 24" className={`${base} text-gray-500`} fill="currentColor">
+                <path d="M6 2h9l5 5v15H6z"/>
+            </svg>
+        );
+    };
+
+    const FolderIcon = ({ open }) => (
+        <span className="inline-flex items-center mr-1 w-5">
+            <img
+                src="./assets/folder.svg"
+                alt="folder"
+                className="w-6 h-6 flex-shrink-0"
+            />
+        </span>
+    );
+
+        // ============= FILE TREE COMPONENT =============
+        const FileTreeItem = ({ 
+            name, path, isFolder, children, depth, 
+            expandedFolders, toggleFolder, activeFile, openFile, 
+            onContextMenu, darkMode, onDragStart, onDragOver, onDrop, isDragging, dragOver
+        }) => {
+            const isActive = !isFolder && activeFile === path;
+            const folderPath = path || name;
+            const isExpanded = isFolder ? expandedFolders.includes(folderPath) : false;
+            const dragging = typeof isDragging === 'function' ? isDragging(path, isFolder) : isDragging;
+            const over = typeof dragOver === 'function' ? dragOver(path) : dragOver;
+
+            return (
+                <div className="select-none" style={{ paddingLeft: depth * 12 }} data-tree-item>
+                    <div
+                        className={`group flex items-center py-1 px-2 rounded cursor-pointer text-sm transition-colors ${
+                            isActive ? 'bg-accent text-white' :
+                            darkMode ? 'hover:bg-hover-bg text-gray-300' : 'hover:bg-gray-200 text-gray-700'
+                        } ${dragging ? 'opacity-50' : ''} ${over ? 'ring-2 ring-accent' : ''}`}
+                        onClick={() => isFolder ? toggleFolder(folderPath) : openFile(path)}
+                        onContextMenu={(e) => onContextMenu(e, name, path, isFolder)}
+                        draggable={true}
+                        onDragStart={(e) => onDragStart(e, path, isFolder)}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver(e, path, isFolder); }}
+                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, path, isFolder); }}
+                    >
+                        {isFolder ? (
+                            <>
+                                <FolderIcon open={isExpanded} />
+                                <span className="flex-1 truncate">{name}</span>
+                            </>
+                        ) : (
+                            <>
+                                <FileIcon name={name} />
+                                <span className="flex-1 truncate">{name}</span>
+                            </>
+                        )}
+                    </div>
+                    {isFolder && isExpanded && children}
+                </div>
+            );
+        };
+
+        const renderFileTree = (node, basePath, depth, props) => {
+            const items = [];
+            const folderNames = Object.keys(node.folders || {}).sort();
+            const fileNames = Object.keys(node.files || {}).sort();
+
+            for (const folder of folderNames) {
+                const fullPath = basePath ? `${basePath}/${folder}` : folder;
+                const childNode = node.folders[folder];
+                items.push(
+                    <FileTreeItem
+                        key={fullPath}
+                        name={folder}
+                        path={fullPath}
+                        isFolder={true}
+                        depth={depth}
+                        {...props}
+                    >
+                        {renderFileTree(childNode, fullPath, depth + 1, props)}
+                    </FileTreeItem>
+                );
+            }
+            for (const fileName of fileNames) {
+                const fullPath = node.files[fileName];
+                items.push(
+                    <FileTreeItem
+                        key={fullPath}
+                        name={fileName}
+                        path={fullPath}
+                        isFolder={false}
+                        depth={depth}
+                        {...props}
+                    />
+                );
+            }
+            return items;
+        };
+
+        // ============= MAIN APP COMPONENT =============
+        const Keycap = () => {
+            const [projects, setProjects] = useState([]);
+            const [currentProject, setCurrentProject] = useState(null);
+            const [openFiles, setOpenFiles] = useState([]);
+            const [activeFile, setActiveFile] = useState(null);
+            const [darkMode, setDarkMode] = useState(true);
+            const [showAI, setShowAI] = useState(false);
+            const [aiMessages, setAiMessages] = useState([]);
+            const [aiInput, setAiInput] = useState('');
+            const [contextMenu, setContextMenu] = useState(null);
+            const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+            const [apiKey, setApiKey] = useState(AIService.cerebrasKey);
+            const [showBottomPanel, setShowBottomPanel] = useState(false);
+            const [consoleOutput, setConsoleOutput] = useState([]);
+            const [expandedFolders, setExpandedFolders] = useState([]);
+            const [dragState, setDragState] = useState({ dragging: null, over: null });
+            const fileInputRef = useRef(null);
+            const folderInputRef = useRef(null);
+
+            const editorRef = useRef(null);
+            const monacoRef = useRef(null);
+            const activeFileRef = useRef(null);
+            const currentProjectRef = useRef(null);
+            const isSettingValueRef = useRef(false); // Flag to prevent auto-save during programmatic changes
+
+            // Initialize
+            useEffect(() => {
+                const savedProjects = localStorage.getItem('keycap_projects');
+                if (savedProjects) {
+                    const parsed = JSON.parse(savedProjects);
+                    setProjects(parsed);
+                    if (parsed.length > 0) {
+                        setCurrentProject(parsed[0]);
+                    }
+                } else {
+                    const defaultProject = createDefaultProject();
+                    setProjects([defaultProject]);
+                    setCurrentProject(defaultProject);
+                }
+
+                // Load Monaco Editor
+                require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+                require(['vs/editor/editor.main'], () => {
+                    monacoRef.current = window.monaco;
+                    if (editorRef.current) {
+                        const editor = monacoRef.current.editor.create(editorRef.current, {
+                            value: '',
+                            language: 'javascript',
+                            theme: darkMode ? 'vs-dark' : 'vs',
+                            fontSize: 14,
+                            fontFamily: 'JetBrains Mono, Courier New, monospace',
+                            minimap: { enabled: true },
+                            automaticLayout: true,
+                            scrollBeyondLastLine: false,
+                            renderWhitespace: 'selection',
+                            tabSize: 2
+                        });
+
+                        editor.onDidChangeModelContent(() => {
+                            // Skip auto-save if we're programmatically setting the value
+                            if (isSettingValueRef.current) return;
+                            
+                            const currentFile = activeFileRef.current;
+                            const currentProj = currentProjectRef.current;
+                            if (currentFile && currentProj) {
+                                const content = editor.getValue();
+                                saveFileContent(currentFile, content);
+                            }
+                        });
+
+                        // Keyboard shortcuts
+                        editor.addCommand(monacoRef.current.KeyMod.CtrlCmd | monacoRef.current.KeyCode.KeyS, () => {
+                            console.log('File saved');
+                            addConsoleOutput('✓ File saved successfully');
+                        });
+
+                        window.editorInstance = editor;
+                    }
+                });
+
+                // Global keyboard shortcuts
+                const handleKeyDown = (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+                        e.preventDefault();
+                        setShowAI(true);
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, []);
+
+            // Save projects to localStorage
+            useEffect(() => {
+                if (projects.length > 0) {
+                    localStorage.setItem('keycap_projects', JSON.stringify(projects));
+                }
+            }, [projects]);
+
+            // Update Monaco theme
+            useEffect(() => {
+                if (window.editorInstance && monacoRef.current) {
+                    monacoRef.current.editor.setTheme(darkMode ? 'vs-dark' : 'vs');
+                }
+            }, [darkMode]);
+
+            // Update refs when activeFile or currentProject changes
+            useEffect(() => {
+                activeFileRef.current = activeFile;
+            }, [activeFile]);
+
+            useEffect(() => {
+                currentProjectRef.current = currentProject;
+            }, [currentProject]);
+
+            const saveFileContent = (fileName, content) => {
+                const currentProj = currentProjectRef.current;
+                if (!currentProj) return;
+                
+                setProjects(prev => prev.map(p => {
+                    if (p.id === currentProj.id) {
+                        const updated = { ...p, files: { ...p.files, [fileName]: content } };
+                        setCurrentProject(updated);
+                        currentProjectRef.current = updated;
+                        return updated;
+                    }
+                    return p;
+                }));
+            };
+
+            const addConsoleOutput = (message) => {
+                setConsoleOutput(prev => [...prev, { time: new Date().toLocaleTimeString(), message }]);
+                setShowBottomPanel(true);
+            };
+
+            const toggleFolder = (folderPath) => {
+                setExpandedFolders(prev => 
+                    prev.includes(folderPath) ? prev.filter(p => p !== folderPath) : [...prev, folderPath]
+                );
+            };
+
+            const openFile = (filePath) => {
+                // Use the ref to get the most up-to-date project
+                const project = currentProjectRef.current || currentProject;
+                if (!project || !project.files[filePath]) return;
+                
+                if (!openFiles.includes(filePath)) {
+                    setOpenFiles([...openFiles, filePath]);
+                }
+                setActiveFile(filePath);
+                activeFileRef.current = filePath; // Update ref so editor can save changes
+                currentProjectRef.current = project; // Ensure ref has latest project
+                
+                // Auto-expand parent folders
+                const parts = filePath.split('/');
+                setExpandedFolders(prev => {
+                    const next = [...prev];
+                    for (let i = 1; i < parts.length; i++) {
+                        const folderPath = parts.slice(0, i).join('/');
+                        if (!next.includes(folderPath)) next.push(folderPath);
+                    }
+                    return next;
+                });
+                
+                if (isImageFile(filePath)) return; // Image viewer handles its own display
+                
+                if (window.editorInstance) {
+                    const content = project.files[filePath] || '';
+                    const ext = filePath.split('.').pop();
+                    const languageMap = {
+                        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+                        'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                        'py': 'python', 'txt': 'plaintext'
+                    };
+                    const model = window.editorInstance.getModel();
+                    if (model) {
+                        monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
+                    }
+                    isSettingValueRef.current = true;
+                    window.editorInstance.setValue(content);
+                    isSettingValueRef.current = false;
+                }
+            };
+
+            const closeFile = (fileName) => {
+                const newOpenFiles = openFiles.filter(f => f !== fileName);
+                setOpenFiles(newOpenFiles);
+                
+                if (activeFile === fileName) {
+                    if (newOpenFiles.length > 0) {
+                        openFile(newOpenFiles[newOpenFiles.length - 1]);
+                    } else {
+                        setActiveFile(null);
+                        activeFileRef.current = null;
+                        if (window.editorInstance) {
+                            isSettingValueRef.current = true;
+                            window.editorInstance.setValue('');
+                            isSettingValueRef.current = false;
+                        }
+                    }
+                }
+            };
+
+            const createNewProject = () => {
+                const projectName = prompt('Enter project name:', `Project ${projects.length + 1}`);
+                if (!projectName) return;
+
+                const newProject = {
+                    ...createDefaultProject(),
+                    name: projectName
+                };
+
+                setProjects([...projects, newProject]);
+                setCurrentProject(newProject);
+                setOpenFiles([]);
+                setActiveFile(null);
+                addConsoleOutput(`✓ Created new project: ${projectName}`);
+            };
+
+            const createEmptyProject = () => {
+                const projectName = prompt('Enter project name:', `Project ${projects.length + 1}`);
+                if (!projectName) return;
+
+                const newProject = {
+                    id: generateId(),
+                    name: projectName,
+                    files: {},
+                    createdAt: Date.now()
+                };
+
+                setProjects([...projects, newProject]);
+                setCurrentProject(newProject);
+                setOpenFiles([]);
+                setActiveFile(null);
+                addConsoleOutput(`✓ Created empty project: ${projectName}`);
+            };
+
+            const deleteProject = (project) => {
+                if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+                const next = projects.filter(p => p.id !== project.id);
+                setProjects(next);
+                if (currentProject?.id === project.id) {
+                    setCurrentProject(next[0] || null);
+                    setOpenFiles([]);
+                    setActiveFile(null);
+                }
+                addConsoleOutput(`✓ Deleted project: ${project.name}`);
+            };
+
+            const downloadProjectAsZip = (project) => {
+                const zipData = {};
+                for (const [fileName, content] of Object.entries(project.files)) {
+                    if (typeof content === 'string' && content.startsWith('data:image')) {
+                        try {
+                            const base64 = content.split(',')[1];
+                            if (base64) zipData[fileName] = fflate.strToU8(atob(base64));
+                            else zipData[fileName] = new TextEncoder().encode(content);
+                        } catch (_) { zipData[fileName] = new TextEncoder().encode(content); }
+                    } else {
+                        zipData[fileName] = new TextEncoder().encode(content);
+                    }
+                }
+                const zipped = fflate.zipSync(zipData);
+                const blob = new Blob([zipped], { type: 'application/zip' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `${project.name}.zip`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                addConsoleOutput(`✓ Downloaded project: ${project.name}`);
+            };
+
+            const addUploadedFiles = (files, basePath = '') => {
+                if (!currentProject || !files.length) return;
+                const toAdd = {};
+                let completed = 0;
+                const finish = () => {
+                    if (++completed === files.length && Object.keys(toAdd).length > 0) {
+                        setProjects(prev => prev.map(p => {
+                            if (p.id === currentProject.id) {
+                                const updated = { ...p, files: { ...p.files, ...toAdd } };
+                                setCurrentProject(updated);
+                                return updated;
+                            }
+                            return p;
+                        }));
+                        addConsoleOutput(`✓ Uploaded ${Object.keys(toAdd).length} file(s)`);
+                    }
+                };
+                const processFile = (file, path) => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = () => { toAdd[path] = reader.result; finish(); };
+                        reader.readAsDataURL(file);
+                    } else {
+                        const reader = new FileReader();
+                        reader.onload = () => { toAdd[path] = reader.result; finish(); };
+                        reader.readAsText(file);
+                    }
+                };
+                for (const file of files) {
+                    const path = ('webkitRelativePath' in file && file.webkitRelativePath)
+                        ? file.webkitRelativePath.replace(/^[^/]+\//, basePath ? basePath + '/' : '').replace(/^\/+/, '')
+                        : (basePath ? basePath + '/' + file.name : file.name);
+                    processFile(file, path);
+                }
+                if (files.length >= 1) {
+                    setExpandedFolders(prev => {
+                        const path = ('webkitRelativePath' in files[0] && files[0].webkitRelativePath)
+                            ? files[0].webkitRelativePath.replace(/^[^/]+\//, '').split('/').slice(0, -1).join('/')
+                            : (basePath ? basePath + '/' + files[0].name : files[0].name);
+                        const parts = path.split('/').filter(Boolean);
+                        const next = [...prev];
+                        for (let i = 1; i <= parts.length; i++) {
+                            const fp = parts.slice(0, i).join('/');
+                            if (fp && !next.includes(fp)) next.push(fp);
+                        }
+                        return next;
+                    });
+                }
+            };
+
+            const handleFileUpload = (e) => {
+                const files = Array.from(e.target.files || []);
+                addUploadedFiles(files);
+                e.target.value = '';
+            };
+
+            const handleFolderUpload = (e) => {
+                const files = Array.from(e.target.files || []);
+                addUploadedFiles(files);
+                e.target.value = '';
+            };
+
+            const readDirEntries = async (dir, basePath) => {
+                const results = [];
+                const reader = dir.createReader();
+                const readBatch = () => new Promise((resolve) => {
+                    reader.readEntries((entries) => resolve(entries));
+                });
+                let entries;
+                while ((entries = await readBatch()).length > 0) {
+                    for (const entry of entries) {
+                        const path = basePath ? basePath + '/' + entry.name : entry.name;
+                        if (entry.isDirectory) {
+                            const sub = await readDirEntries(entry, path);
+                            results.push(...sub);
+                        } else {
+                            const file = await new Promise(r => entry.file(r));
+                            results.push({ file, path });
+                        }
+                    }
+                }
+                return results;
+            };
+
+            const handleAreaDrop = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const items = e.dataTransfer?.items;
+                if (!items || !currentProject) return;
+                const allFiles = [];
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind !== 'file') continue;
+                    const entry = item.webkitGetAsEntry?.();
+                    if (entry?.isDirectory) {
+                        const files = await readDirEntries(entry, entry.name);
+                        allFiles.push(...files);
+                    } else {
+                        const file = item.getAsFile();
+                        if (file) allFiles.push({ file, path: file.name });
+                    }
+                }
+                if (allFiles.length === 0) {
+                    const dropped = Array.from(e.dataTransfer?.files || []);
+                    addUploadedFiles(dropped);
+                } else {
+                    const toAdd = {};
+                    let done = 0;
+                    allFiles.forEach(({ file, path }) => {
+                        const finish = () => {
+                            if (++done === allFiles.length) {
+                                setProjects(prev => prev.map(p => {
+                                    if (p.id === currentProject.id) {
+                                        const updated = { ...p, files: { ...p.files, ...toAdd } };
+                                        setCurrentProject(updated);
+                                        return updated;
+                                    }
+                                    return p;
+                                }));
+                                addConsoleOutput(`✓ Uploaded ${Object.keys(toAdd).length} file(s)`);
+                            }
+                        };
+                        if (file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = () => { toAdd[path] = reader.result; finish(); };
+                            reader.readAsDataURL(file);
+                        } else {
+                            const reader = new FileReader();
+                            reader.onload = () => { toAdd[path] = reader.result; finish(); };
+                            reader.readAsText(file);
+                        }
+                    });
+                }
+            };
+
+            const downloadFile = (filePath) => {
+                if (!currentProject || !currentProject.files[filePath]) return;
+                const content = currentProject.files[filePath];
+                let blob;
+                if (typeof content === 'string' && content.startsWith('data:image')) {
+                    try {
+                        const base64 = content.split(',')[1];
+                        const bytes = atob(base64);
+                        const arr = new Uint8Array(bytes.length);
+                        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+                        const mime = content.match(/^data:([^;]+)/);
+                        blob = new Blob([arr], { type: mime ? mime[1] : 'image/png' });
+                    } catch (_) {
+                        blob = new Blob([content], { type: 'text/plain' });
+                    }
+                } else {
+                    blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filePath.split('/').pop() || filePath;
+                link.click();
+                URL.revokeObjectURL(url);
+                addConsoleOutput(`✓ Downloaded: ${filePath}`);
+            };
+
+
+
+
+            const createNewFile = (folderPath = '') => {
+                const placeholder = folderPath ? `e.g. ${folderPath}/app.js` : 'e.g. app.js or src/utils.js';
+                const fileName = prompt(`Enter file path (${placeholder}):`, folderPath ? `${folderPath}/` : '');
+                if (!fileName || !currentProject) return;
+                const trimmed = fileName.trim().replace(/^\/+|\/+$/g, '');
+                if (!trimmed) return;
+                if (currentProject.files[trimmed]) {
+                    alert('File already exists!');
+                    return;
+                }
+                
+                // Create the updated project immediately
+                const updatedProject = { ...currentProject, files: { ...currentProject.files, [trimmed]: '' } };
+                
+                setProjects(prev => prev.map(p => {
+                    if (p.id === currentProject.id) {
+                        return updatedProject;
+                    }
+                    return p;
+                }));
+                
+                setCurrentProject(updatedProject);
+                
+                // Update refs BEFORE opening file to prevent race condition
+                currentProjectRef.current = updatedProject;
+                activeFileRef.current = trimmed;
+                
+                // Open the file with the updated content
+                if (!openFiles.includes(trimmed)) {
+                    setOpenFiles([...openFiles, trimmed]);
+                }
+                setActiveFile(trimmed);
+                
+                // Auto-expand parent folders
+                const parts = trimmed.split('/');
+                setExpandedFolders(prev => {
+                    const next = [...prev];
+                    for (let i = 1; i < parts.length; i++) {
+                        const folderPath = parts.slice(0, i).join('/');
+                        if (!next.includes(folderPath)) next.push(folderPath);
+                    }
+                    return next;
+                });
+                
+                // Update the editor directly
+                if (window.editorInstance) {
+                    const ext = trimmed.split('.').pop();
+                    const languageMap = {
+                        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+                        'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                        'py': 'python', 'txt': 'plaintext'
+                    };
+                    const model = window.editorInstance.getModel();
+                    if (model && monacoRef.current) {
+                        monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
+                    }
+                    isSettingValueRef.current = true;
+                    window.editorInstance.setValue('');
+                    isSettingValueRef.current = false;
+                }
+                
+                addConsoleOutput(`✓ Created file: ${trimmed}`);
+            };
+
+            const createNewFolder = (parentPath = '') => {
+                const folderName = prompt('Enter folder name:', parentPath ? `${parentPath}/` : '');
+                if (!folderName || !currentProject) return;
+                const trimmed = folderName.trim().replace(/^\/+|\/+$/g, '');
+                if (!trimmed) return;
+                const folderPath = trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+                const gitkeepPath = folderPath + '/.gitkeep';
+                if (Object.keys(currentProject.files).some(p => p.startsWith(folderPath + '/'))) {
+                    alert('Folder already exists!');
+                    return;
+                }
+                setProjects(prev => prev.map(p => {
+                    if (p.id === currentProject.id) {
+                        const updated = { ...p, files: { ...p.files, [gitkeepPath]: '' } };
+                        setCurrentProject(updated);
+                        return updated;
+                    }
+                    return p;
+                }));
+                setExpandedFolders(prev => [...prev, ...folderPath.split('/').map((_, i, arr) => arr.slice(0, i + 1).join('/'))]);
+                addConsoleOutput(`✓ Created folder: ${folderPath}`);
+            };
+
+            const renameFile = (oldPath) => {
+                const isFolder = !currentProject.files[oldPath];
+                const parts = oldPath.split('/');
+                const currentName = parts[parts.length - 1];
+                const newName = prompt(isFolder ? 'Enter new folder name:' : 'Enter new path:', oldPath);
+                if (!newName || newName.trim() === oldPath || !currentProject) return;
+                const trimmed = newName.trim().replace(/^\/+|\/+$/g, '');
+                if (isFolder) {
+                    const prefix = oldPath + '/';
+                    const newFiles = {};
+                    for (const [path, content] of Object.entries(currentProject.files)) {
+                        const newPath = path.startsWith(prefix) ? trimmed + path.slice(oldPath.length) : path;
+                        if (newPath !== path && currentProject.files[newPath]) { alert('Target already exists!'); return; }
+                        newFiles[path.startsWith(prefix) ? trimmed + path.slice(oldPath.length) : path] = content;
+                    }
+                    if (Object.keys(newFiles).some(p => p.startsWith(trimmed + '/'))) {
+                        setProjects(prev => prev.map(p => {
+                            if (p.id === currentProject.id) {
+                                const updated = { ...p, files: newFiles };
+                                setCurrentProject(updated);
+                                setOpenFiles(openFiles.map(f => f.startsWith(prefix) ? trimmed + f.slice(oldPath.length) : f));
+                                if (activeFile?.startsWith(prefix)) setActiveFile(trimmed + activeFile.slice(oldPath.length));
+                                return updated;
+                            }
+                            return p;
+                        }));
+                        addConsoleOutput(`✓ Renamed folder ${oldPath} to ${trimmed}`);
+                    }
+                } else {
+                    if (currentProject.files[trimmed] && trimmed !== oldPath) { alert('File already exists!'); return; }
+                    setProjects(prev => prev.map(p => {
+                        if (p.id === currentProject.id) {
+                            const newFiles = { ...p.files };
+                            newFiles[trimmed] = newFiles[oldPath];
+                            delete newFiles[oldPath];
+                            const updated = { ...p, files: newFiles };
+                            setCurrentProject(updated);
+                            if (openFiles.includes(oldPath)) setOpenFiles(openFiles.map(f => f === oldPath ? trimmed : f));
+                            if (activeFile === oldPath) setActiveFile(trimmed);
+                            return updated;
+                        }
+                        return p;
+                    }));
+                    addConsoleOutput(`✓ Renamed ${oldPath} to ${trimmed}`);
+                }
+            };
+
+            const deleteFileOrFolder = (path, isFolder) => {
+                const display = path;
+                if (!confirm(`Delete ${display}${isFolder ? ' and all contents' : ''}?`)) return;
+                setProjects(prev => prev.map(p => {
+                    if (p.id !== currentProject.id) return p;
+                    const newFiles = {};
+                    const prefix = path + '/';
+                    for (const [filePath, content] of Object.entries(p.files)) {
+                        if (filePath !== path && !filePath.startsWith(prefix)) newFiles[filePath] = content;
+                    }
+                    const updated = { ...p, files: newFiles };
+                    setCurrentProject(updated);
+                    const toClose = openFiles.filter(f => f === path || f.startsWith(prefix));
+                    toClose.forEach(f => closeFile(f));
+                    return updated;
+                }));
+                addConsoleOutput(`✓ Deleted ${display}`);
+            };
+
+            const handleContextMenu = (e, name, path, isFolder) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, fileName: path, isFolder, folderPath: path });
+            };
+
+            const handleDragStart = (e, path, isFolder) => {
+                setDragState({ dragging: { path, isFolder }, over: null });
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', path);
+                e.dataTransfer.setData('application/json', JSON.stringify({ path, isFolder }));
+            };
+
+            const handleDragOver = (e, targetPath, targetIsFolder) => {
+                e.preventDefault();
+                const { dragging } = dragState;
+                if (!dragging || dragging.path === targetPath) return;
+                if (dragging.isFolder && targetPath.startsWith(dragging.path + '/')) return;
+                setDragState(prev => ({ ...prev, over: { path: targetPath, isFolder: targetIsFolder } }));
+            };
+
+            const handleDragEnd = () => setDragState({ dragging: null, over: null });
+
+            const handleDrop = (e, targetPath, targetIsFolder) => {
+                e.preventDefault();
+                const { dragging } = dragState;
+                if (!dragging || !currentProject) { setDragState({ dragging: null, over: null }); return; }
+                if (dragging.path === targetPath) { setDragState({ dragging: null, over: null }); return; }
+                const destFolder = targetIsFolder ? targetPath : targetPath.split('/').slice(0, -1).join('/');
+                const destPrefix = destFolder ? destFolder + '/' : '';
+                const srcPrefix = dragging.isFolder ? dragging.path + '/' : '';
+                if (dragging.isFolder && (destPrefix.startsWith(dragging.path + '/') || destFolder === dragging.path)) {
+                    setDragState({ dragging: null, over: null }); return;
+                }
+                setProjects(prev => prev.map(p => {
+                    if (p.id !== currentProject.id) return p;
+                    const newFiles = {};
+                    for (const [filePath, content] of Object.entries(p.files)) {
+                        let newPath = filePath;
+                        if (dragging.isFolder && filePath.startsWith(srcPrefix)) {
+                            newPath = destPrefix + filePath.slice(srcPrefix.length);
+                        } else if (!dragging.isFolder && filePath === dragging.path) {
+                            newPath = destPrefix + dragging.path.split('/').pop();
+                        }
+                        if (newPath !== filePath) {
+                            if (p.files[newPath]) { addConsoleOutput('Target already exists'); return p; }
+                            newFiles[newPath] = content;
+                        } else {
+                            newFiles[filePath] = content;
+                        }
+                    }
+                    const updated = { ...p, files: newFiles };
+                    setCurrentProject(updated);
+                    setOpenFiles(prev => prev.map(f => {
+                        if (dragging.isFolder && f.startsWith(srcPrefix)) return destPrefix + f.slice(srcPrefix.length);
+                        if (f === dragging.path) return destPrefix + dragging.path.split('/').pop();
+                        return f;
+                    }));
+                    if (activeFile) {
+                        if (dragging.isFolder && activeFile.startsWith(srcPrefix)) {
+                            setActiveFile(destPrefix + activeFile.slice(srcPrefix.length));
+                        } else if (activeFile === dragging.path) {
+                            setActiveFile(destPrefix + dragging.path.split('/').pop());
+                        }
+                    }
+                    return updated;
+                }));
+                setDragState({ dragging: null, over: null });
+                addConsoleOutput(`✓ Moved to ${destFolder || 'root'}`);
+            };
+
+            const downloadFolderAsZip = (folderPath) => {
+                const prefix = folderPath ? folderPath + '/' : '';
+                const zipData = {};
+                for (const [path, content] of Object.entries(currentProject.files)) {
+                    const matches = folderPath ? path.startsWith(prefix) : !path.includes('/');
+                    if (!matches) continue;
+                    const relPath = folderPath ? path.slice(prefix.length) : path;
+                    if (typeof content === 'string' && content.startsWith('data:image')) {
+                        try {
+                            const base64 = content.split(',')[1];
+                            if (base64) zipData[relPath] = fflate.strToU8(atob(base64));
+                        } catch (_) { zipData[relPath] = new TextEncoder().encode(content); }
+                    } else {
+                        zipData[relPath] = new TextEncoder().encode(content);
+                    }
+                }
+                if (Object.keys(zipData).length === 0) { addConsoleOutput('Folder is empty'); return; }
+                const zipped = fflate.zipSync(zipData);
+                const blob = new Blob([zipped], { type: 'application/zip' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `${folderPath || 'project'}.zip`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                addConsoleOutput(`✓ Downloaded folder: ${folderPath || 'root'}`);
+            };
+
+            const handleSendAI = async () => {
+                if (!aiInput.trim()) return;
+
+                const userMessage = { role: 'user', content: aiInput };
+                setAiMessages([...aiMessages, userMessage]);
+                setAiInput('');
+
+                const context = activeFile && currentProject 
+                    ? `Current file: ${activeFile}\n\nContent:\n${currentProject.files[activeFile]}`
+                    : '';
+
+                try {
+                    const response = await AIService.sendMessage(aiInput, context);
+                    const aiMessage = { role: 'assistant', content: response.response };
+                    setAiMessages(prev => [...prev, aiMessage]);
+                    addConsoleOutput('✓ AI response received');
+                } catch (error) {
+                    setAiMessages(prev => [...prev, { 
+                        role: 'assistant', 
+                        content: `Error: ${error.message}` 
+                    }]);
+                }
+            };
+
+            const createFileFromAICode = (code, suggestedLang = '') => {
+                if (!currentProject || !code) return;
+                const extMap = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', css: 'css', json: 'json', python: 'py', py: 'py', html: 'html', plaintext: 'txt' };
+                const ext = extMap[suggestedLang?.toLowerCase()] || 'js';
+                const defaultName = `new-file.${ext}`;
+                const fileName = prompt('Enter filename for new file:', defaultName);
+                if (!fileName || !fileName.trim()) return;
+                const trimmed = fileName.trim().replace(/^\/+|\/+$/g, '');
+                if (currentProject.files[trimmed]) {
+                    alert('File already exists!');
+                    return;
+                }
+                
+                // Create the updated project immediately
+                const updatedProject = { ...currentProject, files: { ...currentProject.files, [trimmed]: code } };
+                
+                setProjects(prev => prev.map(p => {
+                    if (p.id === currentProject.id) {
+                        return updatedProject;
+                    }
+                    return p;
+                }));
+                
+                setCurrentProject(updatedProject);
+                
+                // Update refs BEFORE opening file to prevent race condition
+                currentProjectRef.current = updatedProject;
+                activeFileRef.current = trimmed;
+                
+                // Open the file with the updated content
+                if (!openFiles.includes(trimmed)) {
+                    setOpenFiles([...openFiles, trimmed]);
+                }
+                setActiveFile(trimmed);
+                
+                // Update the editor directly
+                if (window.editorInstance) {
+                    const languageMap = {
+                        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+                        'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
+                        'py': 'python', 'txt': 'plaintext'
+                    };
+                    const model = window.editorInstance.getModel();
+                    if (model && monacoRef.current) {
+                        monacoRef.current.editor.setModelLanguage(model, languageMap[ext] || 'plaintext');
+                    }
+                    isSettingValueRef.current = true;
+                    window.editorInstance.setValue(code);
+                    isSettingValueRef.current = false;
+                }
+                
+                addConsoleOutput(`✓ Created file: ${trimmed}`);
+            };
+
+            const saveApiKey = () => {
+                AIService.setApiKey(apiKey);
+                setShowApiKeyModal(false);
+                addConsoleOutput('✓ API key saved');
+            };
+
+            return (
+                <div className={`h-screen flex flex-col ${darkMode ? 'dark bg-editor-bg text-white' : 'bg-white text-gray-900'}`}>
+                    {/* Top Bar */}
+                    <div className={`h-14 flex items-center justify-between px-4 border-b ${darkMode ? 'border-border-color bg-sidebar-bg' : 'border-gray-200 bg-gray-50'}`}>
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                                <KeycapIcon />
+                                <span className="text-xl font-bold font-display">Keycap</span>
+                            </div>
+                            {currentProject && (
+                                <span className="text-sm text-gray-400">/ {currentProject.name}</span>
+                            )}
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => setShowApiKeyModal(true)}
+                                className={`px-3 py-1.5 rounded text-sm ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                title="Configure AI API Key"
+                            >
+                                🔑 API Key
+                            </button>
+                            
+                            <button
+                                onClick={() => setShowAI(!showAI)}
+                                className="px-4 py-1.5 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
+                                title="Ctrl+Shift+A"
+                            >
+                                ✨ AI Assistant
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex overflow-hidden">
+                        {/* Sidebar */}
+                        <div 
+                            className={`w-64 flex flex-col border-r ${darkMode ? 'border-border-color bg-sidebar-bg' : 'border-gray-200 bg-gray-50'} relative`}
+                            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+                            onDrop={handleAreaDrop}
+                        >
+                            <div className="p-3 border-b border-border-color space-y-2">
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={createNewProject}
+                                        className="flex-1 px-3 py-2 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
+                                    >
+                                        + Project
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => createNewFile()}
+                                        className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                        title="New File"
+                                    >
+                                        + File
+                                    </button>
+                                    <button
+                                        onClick={() => createNewFolder()}
+                                        className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                        title="New Folder"
+                                    >
+                                        + Folder
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                        title="Upload Files"
+                                    >
+                                        ⬆️ Upload
+                                    </button>
+                                    <button
+                                        onClick={() => folderInputRef.current?.click()}
+                                        className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                        title="Upload Folder"
+                                    >
+                                        📁 Folder
+                                    </button>
+                                </div>
+                                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+                                <input ref={folderInputRef} type="file" multiple className="hidden" webkitdirectory="" directory="" onChange={handleFolderUpload} />
+                                <button
+                                    onClick={() => downloadProjectAsZip(currentProject)}
+                                    className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                                >
+                                    ⬇️ Download Project
+                                </button>
+                            </div>
+
+                            <div 
+                                className="flex-1 overflow-auto custom-scrollbar p-2 min-h-0"
+                                onDragLeave={handleDragEnd}
+                                onContextMenu={(e) => {
+                                    if (e.target.closest('[data-tree-item]')) return;
+                                    e.preventDefault();
+                                    setContextMenu({ x: e.clientX, y: e.clientY, fileName: '', isFolder: false, isExplorer: true });
+                                }}
+                            >
+                                <div className="text-xs font-semibold text-gray-400 mb-2 px-2">EXPLORER</div>
+                                {currentProject && (
+                                    <div onDragEnd={handleDragEnd}>
+                                        {renderFileTree(buildFileTree(currentProject.files), '', 0, {
+                                            expandedFolders,
+                                            toggleFolder,
+                                            activeFile,
+                                            openFile,
+                                            onContextMenu: handleContextMenu,
+                                            darkMode,
+                                            onDragStart: handleDragStart,
+                                            onDragOver: handleDragOver,
+                                            onDrop: handleDrop,
+                                            isDragging: (path, isFolder) => {
+                                                const d = dragState.dragging;
+                                                return d && (d.path === path || (d.isFolder && path.startsWith(d.path + '/')));
+                                            },
+                                            dragOver: (path) => dragState.over?.path === path
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-3 border-t border-border-color space-y-2">
+                                <div className="flex gap-2 items-center">
+                                    <select
+                                        value={currentProject?.id || ''}
+                                        onChange={(e) => {
+                                            const project = projects.find(p => p.id === e.target.value);
+                                            setCurrentProject(project);
+                                            setOpenFiles([]);
+                                            setActiveFile(null);
+                                        }}
+                                        className={`flex-1 px-3 py-2 rounded text-sm ${darkMode ? 'bg-hover-bg' : 'bg-gray-200'}`}
+                                    >
+                                        {projects.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={() => currentProject && deleteProject(currentProject)}
+                                        disabled={!currentProject || projects.length <= 1}
+                                        className={`p-2 rounded text-sm transition-colors ${darkMode ? 'hover:bg-red-900/50 text-red-400' : 'hover:bg-red-100 text-red-600'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                                        title="Delete project"
+                                    >
+                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Editor Area */}
+                        <div className="flex-1 flex flex-col">
+                            {/* Tabs */}
+                            {openFiles.length > 0 && (
+                                <div className={`flex border-b ${darkMode ? 'border-border-color bg-sidebar-bg' : 'border-gray-200 bg-gray-100'}`}>
+                                    {openFiles.map(fileName => (
+                                        <div
+                                            key={fileName}
+                                            onClick={() => openFile(fileName)}
+                                            className={`
+                                                px-4 py-2 flex items-center space-x-2 text-sm cursor-pointer border-r
+                                                ${darkMode
+                                                    ? activeFile === fileName
+                                                        ? 'bg-editor-bg text-white border-border-color'
+                                                        : 'bg-sidebar-bg hover:bg-hover-bg text-gray-300 border-border-color'
+                                                    : activeFile === fileName
+                                                        ? 'bg-white text-gray-900 border-gray-200'
+                                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'
+                                                }
+                                            `}
+                                        >
+                                            <FileIcon name={fileName} />
+                                            <span>{fileName}</span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    closeFile(fileName);
+                                                }}
+                                                className="ml-2 text-gray-400 hover:text-red-500"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Monaco Editor / Image Viewer */}
+                            <div className="flex-1 relative flex items-center justify-center overflow-auto bg-editor-bg">
+                                {activeFile && isImageFile(activeFile) && currentProject?.files[activeFile] ? (
+                                    <div className="w-full h-full flex items-center justify-center p-4">
+                                        <img 
+                                            src={currentProject.files[activeFile]} 
+                                            alt={activeFile}
+                                            className="max-w-full max-h-full object-contain rounded"
+                                            style={{ maxHeight: 'calc(100vh - 120px)' }}
+                                        />
+                                    </div>
+                                ) : null}
+                                <div 
+                                    ref={editorRef} 
+                                    className="editor-container w-full h-full" 
+                                    style={{ display: activeFile && isImageFile(activeFile) ? 'none' : 'block' }} 
+                                />
+                            </div>
+
+                            {/* Bottom Panel */}
+                            {showBottomPanel && (
+                               <div className={`h-screen flex flex-col ${darkMode ? 'bg-editor-bg text-white' : 'bg-white text-gray-900'}`}>
+                                    <div className="flex items-center justify-between px-4 py-2 border-b border-border-color">
+                                        <span className="text-sm font-semibold">OUTPUT</span>
+                                        <button
+                                            onClick={() => {
+                                                setShowBottomPanel(false);
+                                                setConsoleOutput([]);
+                                            }}
+                                            className="text-gray-400 hover:text-white"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <div className="p-3 font-display text-xs space-y-1">
+                                        {consoleOutput.map((log, i) => (
+                                            <div key={i} className="flex items-start space-x-2">
+                                                <span className="text-gray-500">[{log.time}]</span>
+                                                <span>{log.message}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* AI Panel */}
+                        {showAI && (
+                            <div className={`w-96 border-l flex flex-col ${darkMode ? 'border-border-color bg-sidebar-bg' : 'border-gray-200 bg-gray-50'}`}>
+                                <div className="p-4 border-b border-border-color flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold">AI Assistant</h2>
+                                    <button
+                                        onClick={() => setShowAI(false)}
+                                        className="text-gray-400 hover:text-white"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
+                                    {aiMessages.length === 0 && (
+                                        <div className="text-center text-gray-400 mt-8">
+                                            <p className="text-sm">Ask AI to help you code</p>
+                                            <p className="text-xs mt-2">Try: "Create a React component" or "Explain this code"</p>
+                                        </div>
+                                    )}
+                                    
+                                    {aiMessages.map((msg, i) => (
+                                        <div key={i} className={`ai-message ${msg.role === 'user' ? 'text-right' : ''}`}>
+                                            <div className={`inline-block p-3 rounded-lg max-w-full ${
+                                                msg.role === 'user' 
+                                                    ? 'bg-accent text-white' 
+                                                    : darkMode ? 'bg-hover-bg' : 'bg-gray-200'
+                                            }`}>
+                                                {msg.role === 'user' ? (
+                                                    <p className="text-sm">{msg.content}</p>
+                                                ) : (
+                                                    <MarkdownRenderer content={msg.content} />
+                                                )}
+                                            </div>
+                                            
+                                            {msg.role === 'assistant' && (() => {
+                                                const codeMatch = msg.content.match(/```(\w*)\n([\s\S]*?)```/);
+                                                return codeMatch && (
+                                                    <div className="mt-2">
+                                                        <button
+                                                            onClick={() => createFileFromAICode(codeMatch[2].trim(), codeMatch[1] || 'plaintext')}
+                                                            className="px-3 py-1.5 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded transition-colors"
+                                                        >
+                                                            Create File from Code
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 border-t border-border-color">
+                                    <div className="flex space-x-2">
+                                        <input
+                                            type="text"
+                                            value={aiInput}
+                                            onChange={(e) => setAiInput(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleSendAI()}
+                                            placeholder="Ask AI anything..."
+                                            className={`flex-1 px-3 py-2 rounded text-sm ${
+                                                darkMode ? 'bg-hover-bg border border-border-color' : 'bg-white border border-gray-300'
+                                            }`}
+                                        />
+                                        <button
+                                            onClick={handleSendAI}
+                                            className="px-4 py-2 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Context Menu */}
+                    {contextMenu && (
+                        <>
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setContextMenu(null)}
+                            />
+                            <div
+                                className={`context-menu ${darkMode ? 'dark' : ''}`}
+                                style={{ left: contextMenu.x, top: contextMenu.y }}
+                            >
+                                {contextMenu.isExplorer && (
+                                    <>
+                                        <div className="context-menu-item" onClick={() => { createNewFile(); setContextMenu(null); }}>New File</div>
+                                        <div className="context-menu-item" onClick={() => { createNewFolder(); setContextMenu(null); }}>New Folder</div>
+                                        <div className="context-menu-item" onClick={() => { fileInputRef.current?.click(); setContextMenu(null); }}>Upload Files</div>
+                                        <div className="context-menu-item" onClick={() => { folderInputRef.current?.click(); setContextMenu(null); }}>Upload Folder</div>
+                                    </>
+                                )}
+                                {!contextMenu.isExplorer && contextMenu.isFolder && (
+                                    <>
+                                        <div className="context-menu-item" onClick={() => { createNewFile(contextMenu.folderPath); setContextMenu(null); }}>New File</div>
+                                        <div className="context-menu-item" onClick={() => { createNewFolder(contextMenu.folderPath); setContextMenu(null); }}>New Folder</div>
+                                        <div className="context-menu-item" onClick={() => { downloadFolderAsZip(contextMenu.folderPath); setContextMenu(null); }}>Download Folder</div>
+                                    </>
+                                )}
+                                {!contextMenu.isExplorer && !contextMenu.isFolder && contextMenu.fileName && (
+                                    <div className="context-menu-item" onClick={() => { downloadFile(contextMenu.fileName); setContextMenu(null); }}>Download</div>
+                                )}
+                                {!contextMenu.isExplorer && (
+                                    <>
+                                        <div className="context-menu-item" onClick={() => { renameFile(contextMenu.fileName); setContextMenu(null); }}>Rename</div>
+                                        <div className="context-menu-item text-red-400" onClick={() => { deleteFileOrFolder(contextMenu.fileName, contextMenu.isFolder); setContextMenu(null); }}>Delete</div>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {/* API Key Modal */}
+                    {showApiKeyModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className={`glassmorphism rounded-2xl p-6 w-96 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <h3 className="text-xl font-semibold mb-4">Configure AI API Key</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Enter your Cerebras API key to use premium AI features. Leave blank to use fallback AI.
+                                </p>
+                                <input
+                                    type="password"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder="Enter Cerebras API key..."
+                                    className={`w-full px-3 py-2 rounded mb-4 text-sm ${
+                                        darkMode ? 'bg-hover-bg border border-border-color' : 'bg-white border border-gray-300'
+                                    }`}
+                                />
+                                <div className="flex space-x-2">
+                                    <button
+                                        onClick={saveApiKey}
+                                        className="flex-1 px-4 py-2 bg-accent hover:bg-accent-hover rounded text-sm font-medium transition-colors"
+                                    >
+                                        Save
+                                    </button>
+                                    <button
+                                        onClick={() => setShowApiKeyModal(false)}
+                                        className={`flex-1 px-4 py-2 rounded text-sm font-medium transition-colors ${
+                                            darkMode ? 'bg-hover-bg hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Render
+        ReactDOM.render(<Keycap />, document.getElementById('root'));
+    </script>
+</body>
+</html>
