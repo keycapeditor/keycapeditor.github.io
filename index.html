@@ -270,7 +270,8 @@
                 r: `# Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`,
                 lua: `-- Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`,
                 vim: `" Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`,
-                txt: `Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`
+                txt: `Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`,
+                spc: `// Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`
             };
             
             return commentStyles[ext] || `// Created: ${timestamp} | ID: ${fileId} | Keycap Editor\n`;
@@ -594,6 +595,11 @@
                     className={`${base} w-6 h-6`}
                     />
             ),
+            spc: (
+                    <svg viewBox="0 0 24 24" className={`${base} w-6 h-6 text-purple-400`} fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                    </svg>
+            ),
             png: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
             jpg: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
             jpeg: <svg viewBox="0 0 24 24" className={`${base} text-green-500`} fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>,
@@ -755,6 +761,47 @@
             }
         };
 
+        // ============= SYSPCODE LANGUAGE DEFINITION =============
+        const registerSyspcodeLanguage = (monaco) => {
+            monaco.languages.register({ id: 'syspcode' });
+
+            monaco.languages.setMonarchTokensProvider('syspcode', {
+                tokenizer: {
+                    root: [
+                        [/\/\/.*$/, 'comment'],
+                        [/use\s+\w+\s*=/, 'keyword'],
+                        [/replace\s+/, 'keyword'],
+                        [/response\s*\[/, 'keyword'],
+                        [/user\.similar\s*\(/, 'keyword'],
+                        [/ai\.respond\s*\(/, 'keyword'],
+                        [/\{|\}|\[|\]|\(|\)/, 'delimiter'],
+                        [/>/, 'operator'],
+                        [/"(?:\\.|[^"\\])*"/, 'string'],
+                        [/'(?:\\.|[^'\\])*'/, 'string'],
+                        [/\s+/, 'whitespace'],
+                        [/./, 'text']
+                    ]
+                }
+            });
+
+            monaco.editor.defineTheme('syspcode-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'keyword', foreground: '#569CD6', fontStyle: 'bold' },
+                    { token: 'comment', foreground: '#6A9955' },
+                    { token: 'string', foreground: '#CE9178' },
+                    { token: 'operator', foreground: '#D4D4D4' },
+                    { token: 'delimiter', foreground: '#D4D4D4' },
+                ],
+                colors: {
+                    'editor.background': '#1e1e1e',
+                    'editor.foreground': '#D4D4D4',
+                    'editor.lineHighlightBackground': '#2d2d30'
+                }
+            });
+        };
+
         // ============= MAIN APP COMPONENT =============
         const Keycap = () => {
             const [projects, setProjects] = useState([]);
@@ -835,6 +882,10 @@
                 require(['vs/editor/editor.main'], () => {
                     try {
                         monacoRef.current = window.monaco;
+                        
+                        // Register SysPCode language
+                        registerSyspcodeLanguage(monacoRef.current);
+                        
                         if (editorRef.current) {
                             const editor = monacoRef.current.editor.create(editorRef.current, {
                                 value: '',
@@ -975,7 +1026,7 @@
                     const languageMap = {
                         'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
                         'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
-                        'py': 'python', 'txt': 'plaintext'
+                        'py': 'python', 'txt': 'plaintext', 'spc': 'syspcode'
                     };
                     const model = window.editorInstance.getModel();
                     if (model) {
@@ -1295,7 +1346,7 @@
                         const languageMap = {
                             'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
                             'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
-                            'py': 'python', 'txt': 'plaintext'
+                            'py': 'python', 'txt': 'plaintext', 'spc': 'syspcode'
                         };
                         const model = window.editorInstance.getModel();
                         if (model && monacoRef.current) {
@@ -1585,7 +1636,7 @@
 
             const createFileFromAICode = (code, suggestedLang = '') => {
                 if (!currentProject || !code) return;
-                const extMap = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', css: 'css', json: 'json', python: 'py', py: 'py', html: 'html', plaintext: 'txt' };
+                const extMap = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', css: 'css', json: 'json', python: 'py', py: 'py', html: 'html', plaintext: 'txt', syspcode: 'spc', spc: 'spc' };
                 const ext = extMap[suggestedLang?.toLowerCase()] || 'js';
                 const defaultName = `new-file.${ext}`;
                 const fileName = prompt('Enter filename for new file:', defaultName);
@@ -1629,7 +1680,7 @@
                         const languageMap = {
                             'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
                             'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown',
-                            'py': 'python', 'txt': 'plaintext'
+                            'py': 'python', 'txt': 'plaintext', 'spc': 'syspcode'
                         };
                         const model = window.editorInstance.getModel();
                         if (model && monacoRef.current) {
