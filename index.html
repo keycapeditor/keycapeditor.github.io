@@ -405,7 +405,7 @@
                 throw new Error(
                     `All Cerebras models failed. ${lastError?.message || ''}`
                 );
-            }
+            },
 
 
             async callFallback(message) {
