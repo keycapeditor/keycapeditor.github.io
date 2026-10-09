@@ -337,44 +337,76 @@
                 }
             },
 
+
             async callCerebras(message, context) {
-                const prompt = context 
-                    ? `Context:\n${context}\n\nUser request: ${message}` 
+                const prompt = context
+                    ? `Context:\n${context}\n\nUser request: ${message}`
                     : message;
-
-                const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.cerebrasKey}`
-                    },
-                    body: JSON.stringify({
-                        model: 'llama3.1-8b',
-                        messages: [
+            
+                const models = [
+                    'qwen-3.8-27b',
+                    'gpt-oss-120b'
+                ];
+            
+                let lastError;
+            
+                for (const model of models) {
+                    try {
+                        const res = await fetch(
+                            'https://api.cerebras.ai/v1/chat/completions',
                             {
-                                role: 'system',
-                                content: 'You are a helpful coding assistant. Provide clear, concise code and explanations. Format code in markdown code blocks. The user can click "Create File from Code" to save your code to a new file.'
-                            },
-                            {
-                                role: 'user',
-                                content: prompt
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.cerebrasKey}`
+                                },
+                                body: JSON.stringify({
+                                    model,
+                                    messages: [
+                                        {
+                                            role: 'system',
+                                            content: 'You are a helpful coding assistant. Provide clear, concise code and explanations. Format code in markdown code blocks. The user can click "Create File from Code" to save your code to a new file.'
+                                        },
+                                        {
+                                            role: 'user',
+                                            content: prompt
+                                        }
+                                    ],
+                                    temperature: 0.7,
+                                    max_tokens: 2000
+                                })
                             }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 2000
-                    })
-                });
-
-                const data = await res.json();
-                
-                if (data.choices && data.choices[0]) {
-                    return { response: data.choices[0].message.content };
-                } else if (data.error) {
-                    throw new Error(data.error.message || 'Cerebras API error');
+                        );
+            
+                        const data = await res.json();
+            
+                        if (!res.ok) {
+                            throw new Error(
+                                data.error?.message ||
+                                `Cerebras API error: ${res.status}`
+                            );
+                        }
+            
+                        if (data.choices?.[0]?.message?.content) {
+                            return {
+                                response: data.choices[0].message.content,
+                                model
+                            };
+                        }
+            
+                        throw new Error('Invalid response from Cerebras');
+            
+                    } catch (error) {
+                        lastError = error;
+                        console.warn(`${model} failed; trying fallback model.`, error);
+                    }
                 }
-                
-                throw new Error('Invalid response from Cerebras');
-            },
+            
+                throw new Error(
+                    `All Cerebras models failed. ${lastError?.message || ''}`
+                );
+            }
+
 
             async callFallback(message) {
                 const res = await fetch('https://keycap-ai.onrender.com/generate', {
